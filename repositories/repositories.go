@@ -1,0 +1,539 @@
+package repositories
+
+import (
+	"database/sql"
+	"fmt"
+
+	"github.com/cristiantebaldi/class-organize-api/models"
+)
+
+// ProfessorRepository gerencia operações de banco de dados para professores
+type ProfessorRepository struct {
+	DB *sql.DB
+}
+
+// SalaRepository gerencia operações de banco de dados para salas
+type SalaRepository struct {
+	DB *sql.DB
+}
+
+// TurmaRepository gerencia operações de banco de dados para turmas
+type TurmaRepository struct {
+	DB *sql.DB
+}
+
+// AlocacaoRepository gerencia operações de banco de dados para alocações
+type AlocacaoRepository struct {
+	DB *sql.DB
+}
+
+// NewProfessorRepository cria um novo repositório de professores
+func NewProfessorRepository(db *sql.DB) *ProfessorRepository {
+	return &ProfessorRepository{DB: db}
+}
+
+// NewSalaRepository cria um novo repositório de salas
+func NewSalaRepository(db *sql.DB) *SalaRepository {
+	return &SalaRepository{DB: db}
+}
+
+// NewTurmaRepository cria um novo repositório de turmas
+func NewTurmaRepository(db *sql.DB) *TurmaRepository {
+	return &TurmaRepository{DB: db}
+}
+
+// NewAlocacaoRepository cria um novo repositório de alocações
+func NewAlocacaoRepository(db *sql.DB) *AlocacaoRepository {
+	return &AlocacaoRepository{DB: db}
+}
+
+// ===== Métodos do ProfessorRepository =====
+
+// GetAll retorna todos os professores
+func (r *ProfessorRepository) GetAll() ([]models.Professor, error) {
+	rows, err := r.DB.Query("SELECT id, nome, email, formacao, disciplina FROM professores")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var professores []models.Professor
+	for rows.Next() {
+		var p models.Professor
+		err := rows.Scan(&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina)
+		if err != nil {
+			return nil, err
+		}
+		professores = append(professores, p)
+	}
+
+	return professores, nil
+}
+
+// GetByID retorna um professor pelo ID
+func (r *ProfessorRepository) GetByID(id int) (models.Professor, error) {
+	var p models.Professor
+	err := r.DB.QueryRow("SELECT id, nome, email, formacao, disciplina FROM professores WHERE id = $1", id).Scan(
+		&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina,
+	)
+	if err != nil {
+		return models.Professor{}, err
+	}
+	return p, nil
+}
+
+// Create cria um novo professor
+func (r *ProfessorRepository) Create(p models.Professor) (models.Professor, error) {
+	query := `INSERT INTO professores (nome, email, formacao, disciplina) 
+			VALUES ($1, $2, $3, $4) RETURNING id`
+
+	err := r.DB.QueryRow(query, p.Nome, p.Email, p.Formacao, p.Disciplina).Scan(&p.ID)
+	if err != nil {
+		return models.Professor{}, err
+	}
+
+	return p, nil
+}
+
+// Update atualiza um professor existente
+func (r *ProfessorRepository) Update(p models.Professor) error {
+	query := `UPDATE professores SET nome = $1, email = $2, formacao = $3, disciplina = $4 
+			WHERE id = $5`
+
+	_, err := r.DB.Exec(query, p.Nome, p.Email, p.Formacao, p.Disciplina, p.ID)
+	return err
+}
+
+// Delete remove um professor pelo ID
+func (r *ProfessorRepository) Delete(id int) error {
+	_, err := r.DB.Exec("DELETE FROM professores WHERE id = $1", id)
+	return err
+}
+
+// ===== Métodos do SalaRepository =====
+
+// GetAll retorna todas as salas
+func (r *SalaRepository) GetAll() ([]models.Sala, error) {
+	rows, err := r.DB.Query("SELECT id, numero, capacidade, bloco, tipo FROM salas")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var salas []models.Sala
+	for rows.Next() {
+		var s models.Sala
+		err := rows.Scan(&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo)
+		if err != nil {
+			return nil, err
+		}
+		salas = append(salas, s)
+	}
+
+	return salas, nil
+}
+
+// GetByID retorna uma sala pelo ID
+func (r *SalaRepository) GetByID(id int) (models.Sala, error) {
+	var s models.Sala
+	err := r.DB.QueryRow("SELECT id, numero, capacidade, bloco, tipo FROM salas WHERE id = $1", id).Scan(
+		&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo,
+	)
+	if err != nil {
+		return models.Sala{}, err
+	}
+	return s, nil
+}
+
+// Create cria uma nova sala
+func (r *SalaRepository) Create(s models.Sala) (models.Sala, error) {
+	query := `INSERT INTO salas (numero, capacidade, bloco, tipo) 
+			VALUES ($1, $2, $3, $4) RETURNING id`
+
+	err := r.DB.QueryRow(query, s.Numero, s.Capacidade, s.Bloco, s.Tipo).Scan(&s.ID)
+	if err != nil {
+		return models.Sala{}, err
+	}
+
+	return s, nil
+}
+
+// Update atualiza uma sala existente
+func (r *SalaRepository) Update(s models.Sala) error {
+	query := `UPDATE salas SET numero = $1, capacidade = $2, bloco = $3, tipo = $4 
+			WHERE id = $5`
+
+	_, err := r.DB.Exec(query, s.Numero, s.Capacidade, s.Bloco, s.Tipo, s.ID)
+	return err
+}
+
+// Delete remove uma sala pelo ID
+func (r *SalaRepository) Delete(id int) error {
+	_, err := r.DB.Exec("DELETE FROM salas WHERE id = $1", id)
+	return err
+}
+
+// ===== Métodos do TurmaRepository =====
+
+// GetAll retorna todas as turmas
+func (r *TurmaRepository) GetAll() ([]models.Turma, error) {
+	rows, err := r.DB.Query("SELECT id, nome, curso, periodo, quant_alunos FROM turmas")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var turmas []models.Turma
+	for rows.Next() {
+		var t models.Turma
+		err := rows.Scan(&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos)
+		if err != nil {
+			return nil, err
+		}
+		turmas = append(turmas, t)
+	}
+
+	return turmas, nil
+}
+
+// GetByID retorna uma turma pelo ID
+func (r *TurmaRepository) GetByID(id int) (models.Turma, error) {
+	var t models.Turma
+	err := r.DB.QueryRow("SELECT id, nome, curso, periodo, quant_alunos FROM turmas WHERE id = $1", id).Scan(
+		&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos,
+	)
+	if err != nil {
+		return models.Turma{}, err
+	}
+	return t, nil
+}
+
+// Create cria uma nova turma
+func (r *TurmaRepository) Create(t models.Turma) (models.Turma, error) {
+	query := `INSERT INTO turmas (nome, curso, periodo, quant_alunos) 
+			VALUES ($1, $2, $3, $4) RETURNING id`
+
+	err := r.DB.QueryRow(query, t.Nome, t.Curso, t.Periodo, t.QuantAlunos).Scan(&t.ID)
+	if err != nil {
+		return models.Turma{}, err
+	}
+
+	return t, nil
+}
+
+// Update atualiza uma turma existente
+func (r *TurmaRepository) Update(t models.Turma) error {
+	query := `UPDATE turmas SET nome = $1, curso = $2, periodo = $3, quant_alunos = $4 
+			WHERE id = $5`
+
+	_, err := r.DB.Exec(query, t.Nome, t.Curso, t.Periodo, t.QuantAlunos, t.ID)
+	return err
+}
+
+// Delete remove uma turma pelo ID
+func (r *TurmaRepository) Delete(id int) error {
+	_, err := r.DB.Exec("DELETE FROM turmas WHERE id = $1", id)
+	return err
+}
+
+// ===== Métodos do AlocacaoRepository =====
+
+// GetAll retorna todas as alocações com detalhes
+func (r *AlocacaoRepository) GetAll() ([]models.Alocacao, error) {
+	query := `
+		SELECT 
+			a.id, a.professor_id, a.sala_id, a.turma_id, a.dia_semana, a.horario_inicio, a.horario_fim,
+			p.id, p.nome, p.email, p.formacao, p.disciplina,
+			s.id, s.numero, s.capacidade, s.bloco, s.tipo,
+			t.id, t.nome, t.curso, t.periodo, t.quant_alunos
+		FROM alocacoes a
+		JOIN professores p ON a.professor_id = p.id
+		JOIN salas s ON a.sala_id = s.id
+		JOIN turmas t ON a.turma_id = t.id
+	`
+
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var alocacoes []models.Alocacao
+	for rows.Next() {
+		var a models.Alocacao
+		var p models.Professor
+		var s models.Sala
+		var t models.Turma
+
+		err := rows.Scan(
+			&a.ID, &a.ProfessorID, &a.SalaID, &a.TurmaID, &a.DiaSemana, &a.HorarioInicio, &a.HorarioFim,
+			&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina,
+			&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo,
+			&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		a.Professor = p
+		a.Sala = s
+		a.Turma = t
+		alocacoes = append(alocacoes, a)
+	}
+
+	return alocacoes, nil
+}
+
+// GetByID retorna uma alocação pelo ID com detalhes
+func (r *AlocacaoRepository) GetByID(id int) (models.Alocacao, error) {
+	query := `
+		SELECT 
+			a.id, a.professor_id, a.sala_id, a.turma_id, a.dia_semana, a.horario_inicio, a.horario_fim,
+			p.id, p.nome, p.email, p.formacao, p.disciplina,
+			s.id, s.numero, s.capacidade, s.bloco, s.tipo,
+			t.id, t.nome, t.curso, t.periodo, t.quant_alunos
+		FROM alocacoes a
+		JOIN professores p ON a.professor_id = p.id
+		JOIN salas s ON a.sala_id = s.id
+		JOIN turmas t ON a.turma_id = t.id
+		WHERE a.id = $1
+	`
+
+	var a models.Alocacao
+	var p models.Professor
+	var s models.Sala
+	var t models.Turma
+
+	err := r.DB.QueryRow(query, id).Scan(
+		&a.ID, &a.ProfessorID, &a.SalaID, &a.TurmaID, &a.DiaSemana, &a.HorarioInicio, &a.HorarioFim,
+		&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina,
+		&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo,
+		&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos,
+	)
+	if err != nil {
+		return models.Alocacao{}, err
+	}
+
+	a.Professor = p
+	a.Sala = s
+	a.Turma = t
+
+	return a, nil
+}
+
+// Create cria uma nova alocação
+func (r *AlocacaoRepository) Create(a models.Alocacao) (models.Alocacao, error) {
+	// Verificar se a sala está disponível no horário solicitado
+	var count int
+	query := `
+		SELECT COUNT(*) FROM alocacoes 
+		WHERE sala_id = $1 AND dia_semana = $2 AND 
+		((horario_inicio <= $3 AND horario_fim > $3) OR 
+		(horario_inicio < $4 AND horario_fim >= $4) OR
+		(horario_inicio >= $3 AND horario_fim <= $4))
+	`
+
+	err := r.DB.QueryRow(query, a.SalaID, a.DiaSemana, a.HorarioInicio, a.HorarioFim).Scan(&count)
+	if err != nil {
+		return models.Alocacao{}, err
+	}
+
+	if count > 0 {
+		return models.Alocacao{}, fmt.Errorf("sala já está alocada neste horário")
+	}
+
+	// Inserir a alocação
+	insertQuery := `
+		INSERT INTO alocacoes (professor_id, sala_id, turma_id, dia_semana, horario_inicio, horario_fim) 
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+	`
+
+	err = r.DB.QueryRow(insertQuery, a.ProfessorID, a.SalaID, a.TurmaID, a.DiaSemana, a.HorarioInicio, a.HorarioFim).Scan(&a.ID)
+	if err != nil {
+		return models.Alocacao{}, err
+	}
+
+	// Buscar a alocação completa com os detalhes
+	return r.GetByID(a.ID)
+}
+
+// Update atualiza uma alocação existente
+func (r *AlocacaoRepository) Update(a models.Alocacao) error {
+	// Verificar se a sala está disponível no horário solicitado (excluindo a própria alocação)
+	var count int
+	query := `
+		SELECT COUNT(*) FROM alocacoes 
+		WHERE sala_id = $1 AND dia_semana = $2 AND 
+		((horario_inicio <= $3 AND horario_fim > $3) OR 
+		(horario_inicio < $4 AND horario_fim >= $4) OR
+		(horario_inicio >= $3 AND horario_fim <= $4)) AND
+		id != $5
+	`
+
+	err := r.DB.QueryRow(query, a.SalaID, a.DiaSemana, a.HorarioInicio, a.HorarioFim, a.ID).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return fmt.Errorf("sala já está alocada neste horário")
+	}
+
+	// Atualizar a alocação
+	updateQuery := `
+		UPDATE alocacoes SET 
+		professor_id = $1, sala_id = $2, turma_id = $3, 
+		dia_semana = $4, horario_inicio = $5, horario_fim = $6 
+		WHERE id = $7
+	`
+
+	_, err = r.DB.Exec(updateQuery, a.ProfessorID, a.SalaID, a.TurmaID, a.DiaSemana, a.HorarioInicio, a.HorarioFim, a.ID)
+	return err
+}
+
+// Delete remove uma alocação pelo ID
+func (r *AlocacaoRepository) Delete(id int) error {
+	_, err := r.DB.Exec("DELETE FROM alocacoes WHERE id = $1", id)
+	return err
+}
+
+// GetBySalaID retorna todas as alocações de uma sala específica
+func (r *AlocacaoRepository) GetBySalaID(salaID int) ([]models.Alocacao, error) {
+	query := `
+		SELECT 
+			a.id, a.professor_id, a.sala_id, a.turma_id, a.dia_semana, a.horario_inicio, a.horario_fim,
+			p.id, p.nome, p.email, p.formacao, p.disciplina,
+			s.id, s.numero, s.capacidade, s.bloco, s.tipo,
+			t.id, t.nome, t.curso, t.periodo, t.quant_alunos
+		FROM alocacoes a
+		JOIN professores p ON a.professor_id = p.id
+		JOIN salas s ON a.sala_id = s.id
+		JOIN turmas t ON a.turma_id = t.id
+		WHERE a.sala_id = $1
+	`
+
+	rows, err := r.DB.Query(query, salaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var alocacoes []models.Alocacao
+	for rows.Next() {
+		var a models.Alocacao
+		var p models.Professor
+		var s models.Sala
+		var t models.Turma
+
+		err := rows.Scan(
+			&a.ID, &a.ProfessorID, &a.SalaID, &a.TurmaID, &a.DiaSemana, &a.HorarioInicio, &a.HorarioFim,
+			&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina,
+			&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo,
+			&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		a.Professor = p
+		a.Sala = s
+		a.Turma = t
+		alocacoes = append(alocacoes, a)
+	}
+
+	return alocacoes, nil
+}
+
+// GetByProfessorID retorna todas as alocações de um professor específico
+func (r *AlocacaoRepository) GetByProfessorID(professorID int) ([]models.Alocacao, error) {
+	query := `
+		SELECT 
+			a.id, a.professor_id, a.sala_id, a.turma_id, a.dia_semana, a.horario_inicio, a.horario_fim,
+			p.id, p.nome, p.email, p.formacao, p.disciplina,
+			s.id, s.numero, s.capacidade, s.bloco, s.tipo,
+			t.id, t.nome, t.curso, t.periodo, t.quant_alunos
+		FROM alocacoes a
+		JOIN professores p ON a.professor_id = p.id
+		JOIN salas s ON a.sala_id = s.id
+		JOIN turmas t ON a.turma_id = t.id
+		WHERE a.professor_id = $1
+	`
+
+	rows, err := r.DB.Query(query, professorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var alocacoes []models.Alocacao
+	for rows.Next() {
+		var a models.Alocacao
+		var p models.Professor
+		var s models.Sala
+		var t models.Turma
+
+		err := rows.Scan(
+			&a.ID, &a.ProfessorID, &a.SalaID, &a.TurmaID, &a.DiaSemana, &a.HorarioInicio, &a.HorarioFim,
+			&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina,
+			&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo,
+			&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		a.Professor = p
+		a.Sala = s
+		a.Turma = t
+		alocacoes = append(alocacoes, a)
+	}
+
+	return alocacoes, nil
+}
+
+// GetByTurmaID retorna todas as alocações de uma turma específica
+func (r *AlocacaoRepository) GetByTurmaID(turmaID int) ([]models.Alocacao, error) {
+	query := `
+		SELECT 
+			a.id, a.professor_id, a.sala_id, a.turma_id, a.dia_semana, a.horario_inicio, a.horario_fim,
+			p.id, p.nome, p.email, p.formacao, p.disciplina,
+			s.id, s.numero, s.capacidade, s.bloco, s.tipo,
+			t.id, t.nome, t.curso, t.periodo, t.quant_alunos
+		FROM alocacoes a
+		JOIN professores p ON a.professor_id = p.id
+		JOIN salas s ON a.sala_id = s.id
+		JOIN turmas t ON a.turma_id = t.id
+		WHERE a.turma_id = $1
+	`
+
+	rows, err := r.DB.Query(query, turmaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var alocacoes []models.Alocacao
+	for rows.Next() {
+		var a models.Alocacao
+		var p models.Professor
+		var s models.Sala
+		var t models.Turma
+
+		err := rows.Scan(
+			&a.ID, &a.ProfessorID, &a.SalaID, &a.TurmaID, &a.DiaSemana, &a.HorarioInicio, &a.HorarioFim,
+			&p.ID, &p.Nome, &p.Email, &p.Formacao, &p.Disciplina,
+			&s.ID, &s.Numero, &s.Capacidade, &s.Bloco, &s.Tipo,
+			&t.ID, &t.Nome, &t.Curso, &t.Periodo, &t.QuantAlunos,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		a.Professor = p
+		a.Sala = s
+		a.Turma = t
+		alocacoes = append(alocacoes, a)
+	}
+
+	return alocacoes, nil
+}
