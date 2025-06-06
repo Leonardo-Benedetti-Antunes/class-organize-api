@@ -1,0 +1,23 @@
+meta {
+  name: criar alocacoes
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8080/api/alocacoes
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "professor_id": 1,
+    "sala_id": 1,
+    "turma_id": 1,
+    "dia_semana": "segunda-feira",
+    "horario_inicio": "20:30",
+    "horario_fim": "22:30"
+  }
+  
+}

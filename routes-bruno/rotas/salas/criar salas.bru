@@ -1,0 +1,21 @@
+meta {
+  name: criar salas
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:8080/api/salas
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "numero": "130",
+    "capacidade": 25,
+    "bloco": "A45",
+    "tipo": "laborátório"
+  }
+  
+}

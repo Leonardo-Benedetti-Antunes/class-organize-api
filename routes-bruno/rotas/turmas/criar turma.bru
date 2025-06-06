@@ -1,0 +1,21 @@
+meta {
+  name: criar turma
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8080/api/turmas
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "nome": "Ciências Con. 4",
+    "curso": "ciências contábeis",
+    "periodo": "3º Semestre",
+    "quant_alunos": 20
+  }
+  
+}

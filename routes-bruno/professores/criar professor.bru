@@ -1,0 +1,21 @@
+meta {
+  name: criar professor
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:8080/api/professores
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "nome": "cristian",
+    "email": "cristian@gmail.com",
+    "formacao": "ciência ecônomicas",
+    "disciplina": "tributação"
+  }
+  
+}

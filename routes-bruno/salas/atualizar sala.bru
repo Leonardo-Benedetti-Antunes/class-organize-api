@@ -1,0 +1,21 @@
+meta {
+  name: atualizar sala
+  type: http
+  seq: 3
+}
+
+put {
+  url: http://localhost:8080/api/salas/id
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "numero": "130",
+    "capacidade": 25,
+    "bloco": "A45",
+    "tipo": "laborátório"
+  }
+  
+}
