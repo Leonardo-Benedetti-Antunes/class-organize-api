@@ -1,0 +1,19 @@
+meta {
+  name: alocacao automatica
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://localhost:8080/api/alocacoes/automatico
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "dia_semana": "segunda-feira",
+    "horario_inicio": "19:00",
+    "horario_fim": "22:30"
+  }
+}

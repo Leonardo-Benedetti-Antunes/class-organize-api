@@ -3,6 +3,8 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/cristiantebaldi/class-organize-api/models"
 )
@@ -536,4 +538,225 @@ func (r *AlocacaoRepository) GetByTurmaID(turmaID int) ([]models.Alocacao, error
 	}
 
 	return alocacoes, nil
+}
+
+// OrganizarAlocacoesAutomaticas organiza alocações automaticamente para um dia e horário específicos
+func (r *AlocacaoRepository) OrganizarAlocacoesAutomaticas(diaSemana, horarioInicio, horarioFim string) ([]models.Alocacao, error) {
+	// Inicializar o gerador de números aleatórios
+	rand.Seed(time.Now().UnixNano())
+
+	// 1. Obter todos os professores disponíveis
+	professores, err := r.getProfessoresDisponiveis(diaSemana, horarioInicio, horarioFim)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao obter professores disponíveis: %v", err)
+	}
+
+	// 2. Obter todas as salas disponíveis
+	salas, err := r.getSalasDisponiveis(diaSemana, horarioInicio, horarioFim)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao obter salas disponíveis: %v", err)
+	}
+
+	// 3. Obter todas as turmas disponíveis
+	turmas, err := r.getTurmasDisponiveis(diaSemana, horarioInicio, horarioFim)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao obter turmas disponíveis: %v", err)
+	}
+
+	// 4. Verificar se há recursos suficientes para fazer alocações
+	if len(professores) == 0 || len(salas) == 0 || len(turmas) == 0 {
+		return nil, fmt.Errorf("não há recursos suficientes para fazer alocações")
+	}
+
+	// 5. Criar alocações automaticamente
+	var alocacoesCriadas []models.Alocacao
+
+	// Usar o número mínimo entre professores, salas e turmas disponíveis
+	numAlocacoes := min(len(professores), min(len(salas), len(turmas)))
+
+	// Embaralhar os arrays de professores, salas e turmas para alocação aleatória
+	rand.Shuffle(len(professores), func(i, j int) {
+		professores[i], professores[j] = professores[j], professores[i]
+	})
+
+	rand.Shuffle(len(salas), func(i, j int) {
+		salas[i], salas[j] = salas[j], salas[i]
+	})
+
+	rand.Shuffle(len(turmas), func(i, j int) {
+		turmas[i], turmas[j] = turmas[j], turmas[i]
+	})
+
+	for i := 0; i < numAlocacoes; i++ {
+		// Criar uma nova alocação
+		novaAlocacao := models.Alocacao{
+			ProfessorID:   professores[i].ID,
+			SalaID:        salas[i].ID,
+			TurmaID:       turmas[i].ID,
+			DiaSemana:     diaSemana,
+			HorarioInicio: horarioInicio,
+			HorarioFim:    horarioFim,
+			Professor:     professores[i],
+			Sala:          salas[i],
+			Turma:         turmas[i],
+		}
+
+		// Inserir a alocação no banco de dados
+		alocacaoCriada, err := r.Create(novaAlocacao)
+		if err != nil {
+			// Continuar mesmo se houver erro em uma alocação específica
+			continue
+		}
+
+		alocacoesCriadas = append(alocacoesCriadas, alocacaoCriada)
+	}
+
+	if len(alocacoesCriadas) == 0 {
+		return nil, fmt.Errorf("não foi possível criar nenhuma alocação")
+	}
+
+	return alocacoesCriadas, nil
+}
+
+// getProfessoresDisponiveis retorna professores disponíveis em um determinado dia e horário
+func (r *AlocacaoRepository) getProfessoresDisponiveis(diaSemana, horarioInicio, horarioFim string) ([]models.Professor, error) {
+	// Obter todos os professores
+	professorRepo := &ProfessorRepository{DB: r.DB}
+	allProfessores, err := professorRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// Consultar professores já alocados no horário especificado
+	query := `
+		SELECT DISTINCT professor_id FROM alocacoes 
+		WHERE dia_semana = $1 AND 
+		((horario_inicio <= $2 AND horario_fim > $2) OR 
+		(horario_inicio < $3 AND horario_fim >= $3) OR
+		(horario_inicio >= $2 AND horario_fim <= $3))
+	`
+
+	rows, err := r.DB.Query(query, diaSemana, horarioInicio, horarioFim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Criar um mapa de IDs de professores já alocados
+	alocadosIDs := make(map[int]bool)
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		alocadosIDs[id] = true
+	}
+
+	// Filtrar professores disponíveis
+	var professoresDisponiveis []models.Professor
+	for _, p := range allProfessores {
+		if !alocadosIDs[p.ID] {
+			professoresDisponiveis = append(professoresDisponiveis, p)
+		}
+	}
+
+	return professoresDisponiveis, nil
+}
+
+// getSalasDisponiveis retorna salas disponíveis em um determinado dia e horário
+func (r *AlocacaoRepository) getSalasDisponiveis(diaSemana, horarioInicio, horarioFim string) ([]models.Sala, error) {
+	// Obter todas as salas
+	salaRepo := &SalaRepository{DB: r.DB}
+	allSalas, err := salaRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// Consultar salas já alocadas no horário especificado
+	query := `
+		SELECT DISTINCT sala_id FROM alocacoes 
+		WHERE dia_semana = $1 AND 
+		((horario_inicio <= $2 AND horario_fim > $2) OR 
+		(horario_inicio < $3 AND horario_fim >= $3) OR
+		(horario_inicio >= $2 AND horario_fim <= $3))
+	`
+
+	rows, err := r.DB.Query(query, diaSemana, horarioInicio, horarioFim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Criar um mapa de IDs de salas já alocadas
+	alocadosIDs := make(map[int]bool)
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		alocadosIDs[id] = true
+	}
+
+	// Filtrar salas disponíveis
+	var salasDisponiveis []models.Sala
+	for _, s := range allSalas {
+		if !alocadosIDs[s.ID] {
+			salasDisponiveis = append(salasDisponiveis, s)
+		}
+	}
+
+	return salasDisponiveis, nil
+}
+
+// getTurmasDisponiveis retorna turmas disponíveis em um determinado dia e horário
+func (r *AlocacaoRepository) getTurmasDisponiveis(diaSemana, horarioInicio, horarioFim string) ([]models.Turma, error) {
+	// Obter todas as turmas
+	turmaRepo := &TurmaRepository{DB: r.DB}
+	allTurmas, err := turmaRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// Consultar turmas já alocadas no horário especificado
+	query := `
+		SELECT DISTINCT turma_id FROM alocacoes 
+		WHERE dia_semana = $1 AND 
+		((horario_inicio <= $2 AND horario_fim > $2) OR 
+		(horario_inicio < $3 AND horario_fim >= $3) OR
+		(horario_inicio >= $2 AND horario_fim <= $3))
+	`
+
+	rows, err := r.DB.Query(query, diaSemana, horarioInicio, horarioFim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Criar um mapa de IDs de turmas já alocadas
+	alocadosIDs := make(map[int]bool)
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		alocadosIDs[id] = true
+	}
+
+	// Filtrar turmas disponíveis
+	var turmasDisponiveis []models.Turma
+	for _, t := range allTurmas {
+		if !alocadosIDs[t.ID] {
+			turmasDisponiveis = append(turmasDisponiveis, t)
+		}
+	}
+
+	return turmasDisponiveis, nil
+}
+
+// Função auxiliar para obter o mínimo entre dois inteiros
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

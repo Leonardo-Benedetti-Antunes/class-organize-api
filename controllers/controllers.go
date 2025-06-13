@@ -95,6 +95,7 @@ func SetupRoutes(r *mux.Router, db *sql.DB) {
 	r.HandleFunc("/api/alocacoes", alocacaoController.CreateAlocacao).Methods("POST")
 	r.HandleFunc("/api/alocacoes/{id}", alocacaoController.UpdateAlocacao).Methods("PUT")
 	r.HandleFunc("/api/alocacoes/{id}", alocacaoController.DeleteAlocacao).Methods("DELETE")
+	r.HandleFunc("/api/alocacoes/automatico", alocacaoController.OrganizarAlocacoesAutomaticas).Methods("POST")
 
 	// Rotas especiais para alocações
 	r.HandleFunc("/api/alocacoes/sala/{id}", alocacaoController.GetAlocacoesBySala).Methods("GET")
@@ -560,5 +561,41 @@ func (c *AlocacaoController) GetAlocacoesByTurma(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(alocacoes)
+}
+
+// OrganizarAlocacoesAutomaticas organiza alocações automaticamente para um dia e horário específicos
+func (c *AlocacaoController) OrganizarAlocacoesAutomaticas(w http.ResponseWriter, r *http.Request) {
+	// Estrutura para receber os dados da requisição
+	type AlocacaoAutomaticaRequest struct {
+		DiaSemana     string `json:"dia_semana"`
+		HorarioInicio string `json:"horario_inicio"`
+		HorarioFim    string `json:"horario_fim"`
+	}
+
+	// Decodificar o corpo da requisição
+	var req AlocacaoAutomaticaRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Erro ao decodificar o corpo da requisição: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validar os dados recebidos
+	if req.DiaSemana == "" || req.HorarioInicio == "" || req.HorarioFim == "" {
+		http.Error(w, "Os campos dia_semana, horario_inicio e horario_fim são obrigatórios", http.StatusBadRequest)
+		return
+	}
+
+	// Chamar o método do repositório para organizar as alocações automaticamente
+	alocacoes, err := c.Repo.OrganizarAlocacoesAutomaticas(req.DiaSemana, req.HorarioInicio, req.HorarioFim)
+	if err != nil {
+		http.Error(w, "Erro ao organizar alocações automaticamente: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Retornar as alocações criadas
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(alocacoes)
 }
