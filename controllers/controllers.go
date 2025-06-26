@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/cristiantebaldi/class-organize-api/infra"
 	"github.com/cristiantebaldi/class-organize-api/models"
 	"github.com/cristiantebaldi/class-organize-api/repositories"
 
@@ -457,6 +458,8 @@ func (c *AlocacaoController) CreateAlocacao(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	go infra.SendEmailOnAlocacaoSuccess(alocacao)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

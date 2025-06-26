@@ -8,3 +8,5 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/rs/cors v1.11.1
 )
+
+require github.com/resendlabs/resend-go v1.7.0
